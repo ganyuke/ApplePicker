@@ -13,9 +13,16 @@ public class AppleTree : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+        Invoke("DropApple", 2f);
     }
 
+    void DropApple()
+    {
+        GameObject apple = Instantiate<GameObject>(applePrefab);
+        apple.transform.position = transform.position;
+        Invoke("DropApple", appleDropDelay);
+    }
+    
     // Update is called once per frame
     void Update()
     {
