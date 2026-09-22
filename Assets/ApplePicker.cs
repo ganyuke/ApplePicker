@@ -77,6 +77,7 @@ public class ApplePicker : MonoBehaviour
 
         NextBasketRewardScore = Mathf.Max(1, firstBasketRewardScore);
         PositionBasketRig();
+        ClearBasketBottoms();
         for (int i = 0; i < numBaskets; i++) RestoreBasket();
         scoreCounter = FindAnyObjectByType<ScoreCounter>();
         if (scoreCounter != null)
@@ -125,6 +126,14 @@ public class ApplePicker : MonoBehaviour
             gameUI.ShowShieldUnlock();
     }
 
+    private void ClearBasketBottoms()
+    {
+        basketList.Clear();
+        if (basketBottomsParent == null) return;
+        for (int i = basketBottomsParent.childCount - 1; i >= 0; i--)
+            Destroy(basketBottomsParent.GetChild(i).gameObject);
+    }
+
     public bool RestoreBasket()
     {
         if (basketList.Count >= numBaskets || basketBottomPrefab == null || basketBottomsParent == null) return false;
@@ -132,6 +141,8 @@ public class ApplePicker : MonoBehaviour
         GameObject bottom = Instantiate(basketBottomPrefab, basketBottomsParent);
         bottom.transform.localPosition = new Vector3(0f, localY, 0f);
         bottom.transform.localRotation = Quaternion.identity;
+        Rigidbody extraBody = bottom.GetComponent<Rigidbody>();
+        if (extraBody != null) Destroy(extraBody);
         basketList.Add(bottom);
         if (ShieldingUnlocked) UpdateShields();
         return true;
@@ -288,7 +299,7 @@ public class ApplePicker : MonoBehaviour
     {
         if (scoreCounter == null || !LeaderboardStore.HasPlayerName) return;
         LeaderboardStore.AddScore(LeaderboardStore.PlayerName, scoreCounter.score);
-        HighScore.RefreshDisplay();
+        Leaderboard.RefreshDisplay();
     }
 
     private string FormatScore() => scoreCounter != null ? scoreCounter.score.ToString("#,0") : "0";

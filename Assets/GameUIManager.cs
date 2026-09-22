@@ -2,8 +2,6 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
-
 // Lives on the Canvas. Finds modal children by name and wires buttons in Awake.
 public class GameUIManager : MonoBehaviour
 {
@@ -99,9 +97,6 @@ public class GameUIManager : MonoBehaviour
             || (shieldModal != null && shieldModal.activeSelf)
             || (gameOverModal != null && gameOverModal.activeSelf);
         backdropModal.SetActive(show);
-        if (!show) return;
-        Image backdrop = backdropModal.GetComponent<Image>();
-        if (backdrop != null) backdrop.raycastTarget = true;
     }
 
     public void ShowNameEntry()
@@ -127,7 +122,7 @@ public class GameUIManager : MonoBehaviour
         IsNamePromptOpen = false;
         startModal.SetActive(false);
         SyncBackdrop();
-        HighScore.RefreshDisplay();
+        Leaderboard.RefreshDisplay();
         Resume();
         NameSubmitted?.Invoke(name);
     }
