@@ -1,8 +1,5 @@
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 [DefaultExecutionOrder(-100)]
 public class ApplePicker : MonoBehaviour
@@ -39,23 +36,30 @@ public class ApplePicker : MonoBehaviour
     public ParticleSystem shieldHitEffectPrefab;
 
     public bool ShieldingUnlocked { get; private set; }
-    public bool IsShieldPromptOpen { get; private set; }
-    public bool IsNamePromptOpen { get; private set; }
     public bool IsGameOver { get; private set; }
-    public bool IsPlaying => !IsShieldPromptOpen && !IsNamePromptOpen && !IsGameOver && Time.timeScale > 0f;
+    public bool IsShieldPromptOpen => gameUI != null && gameUI.IsShieldPromptOpen;
+    public bool IsNamePromptOpen => gameUI != null && gameUI.IsNamePromptOpen;
+    public bool IsPlaying => !IsGameOver && (gameUI == null || !gameUI.BlocksGameplay) && Time.timeScale > 0f;
     public float BasketX { get; private set; }
     public long NextBasketRewardScore { get; private set; }
 
+    private GameUIManager gameUI;
     private ScoreCounter scoreCounter;
     private float targetBasketX;
     private int lastLossFrame = -1;
-    private GameObject modal;
     private PhysicsMaterial bounceMaterial;
     private GameObject padsRoot;
-    private float resumeTimeScale = 1f;
 
     void Start()
     {
+        gameUI = FindAnyObjectByType<GameUIManager>();
+        if (gameUI != null)
+        {
+            gameUI.ShieldAccepted += ActivateShielding;
+            gameUI.RestartRequested += RestartGame;
+            gameUI.NewGameRequested += NewGame;
+        }
+
         basketList = new List<GameObject>();
         if (basketRig == null) basketRig = FindAnyObjectByType<Basket>();
         if (basketBottomsParent == null && basketRig != null)
@@ -80,16 +84,12 @@ public class ApplePicker : MonoBehaviour
             scoreCounter.ScoreChanged += OnScoreChanged;
             OnScoreChanged(scoreCounter.score);
         }
-
-        if (!LeaderboardStore.HasPlayerName)
-            ShowNameEntryModal();
     }
 
     void FixedUpdate()
     {
         if (!IsPlaying) return;
         BasketX = Mathf.MoveTowards(BasketX, ClampBasketX(targetBasketX), basketMoveSpeed * Time.fixedDeltaTime);
-        // Shields are children of the basket rig and move with it automatically.
     }
 
     public void SetBasketTargetX(float x)
@@ -121,12 +121,8 @@ public class ApplePicker : MonoBehaviour
             RestoreBasket();
             NextBasketRewardScore *= 2L;
         }
-        if (score >= shieldingScore && !ShieldingUnlocked && !IsShieldPromptOpen)
-        {
-            IsShieldPromptOpen = true;
-            PauseGame();
-            ShowShieldUnlockModal();
-        }
+        if (score >= shieldingScore && !ShieldingUnlocked && !IsShieldPromptOpen && gameUI != null)
+            gameUI.ShowShieldUnlock();
     }
 
     public bool RestoreBasket()
@@ -166,7 +162,7 @@ public class ApplePicker : MonoBehaviour
         basketList.RemoveAt(basketIndex);
         Destroy(bottom);
         if (basketList.Count == 0)
-            ShowGameOverModal();
+            EndRun("Out of baskets", "Score: " + FormatScore());
         else if (ShieldingUnlocked) UpdateShields();
     }
 
@@ -185,9 +181,7 @@ public class ApplePicker : MonoBehaviour
         padsRoot = new GameObject("Bounce Pads");
         CreatePad(-1f);
         CreatePad(1f);
-        IsShieldPromptOpen = false;
-        if (modal != null) Destroy(modal);
-        Time.timeScale = resumeTimeScale;
+        gameUI?.HideShieldUnlock();
     }
 
     private void EnsureBounceMaterial()
@@ -279,19 +273,15 @@ public class ApplePicker : MonoBehaviour
     public void TreeDied()
     {
         if (IsGameOver) return;
-        IsGameOver = true;
-        PauseGame();
-        SaveRunScore();
-        ShowEndGameModal("The tree died", "Give the tree time to recover between hits.\nScore: " + FormatScore());
+        EndRun("The tree died", "Give the tree time to recover between hits.\nScore: " + FormatScore());
     }
 
-    private void ShowGameOverModal()
+    private void EndRun(string title, string description)
     {
         if (IsGameOver) return;
         IsGameOver = true;
-        PauseGame();
         SaveRunScore();
-        ShowEndGameModal("Out of baskets", "Score: " + FormatScore());
+        gameUI?.ShowGameOver(title, description);
     }
 
     private void SaveRunScore()
@@ -301,226 +291,39 @@ public class ApplePicker : MonoBehaviour
         HighScore.RefreshDisplay();
     }
 
-    private void ShowShieldUnlockModal()
-    {
-        if (modal != null) Destroy(modal);
-        Canvas canvas = FindAnyObjectByType<Canvas>();
-        modal = new GameObject("Gameplay Modal", typeof(RectTransform), typeof(Image));
-        modal.transform.SetParent(canvas.transform, false);
-        RectTransform overlay = modal.GetComponent<RectTransform>();
-        overlay.anchorMin = Vector2.zero;
-        overlay.anchorMax = Vector2.one;
-        overlay.offsetMin = overlay.offsetMax = Vector2.zero;
-        modal.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
-
-        GameObject buttonObject = new GameObject("Continue Button", typeof(RectTransform), typeof(Image), typeof(Button));
-        buttonObject.transform.SetParent(modal.transform, false);
-        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
-        buttonRect.sizeDelta = new Vector2(420f, 72f);
-        buttonRect.anchoredPosition = Vector2.zero;
-        buttonObject.GetComponent<Image>().color = new Color(0.1f, 0.4f, 0.55f);
-        Button button = buttonObject.GetComponent<Button>();
-        button.targetGraphic = buttonObject.GetComponent<Image>();
-        button.onClick.AddListener(ActivateShielding);
-        TextMeshProUGUI label = AddModalText("You obtained SHIELDING", 0f, 28f);
-        label.transform.SetParent(buttonObject.transform, false);
-        label.rectTransform.sizeDelta = buttonRect.sizeDelta;
-        button.Select();
-    }
-
     private string FormatScore() => scoreCounter != null ? scoreCounter.score.ToString("#,0") : "0";
-
-    private void PauseGame()
-    {
-        if (Time.timeScale > 0f) resumeTimeScale = Time.timeScale;
-        Time.timeScale = 0f;
-    }
 
     public void RestartGame()
     {
-        Time.timeScale = 1f;
-        SceneManager.LoadScene("_Scene_0");
+        if (gameUI != null) gameUI.RestartGame();
+        else
+        {
+            Time.timeScale = 1f;
+            UnityEngine.SceneManagement.SceneManager.LoadScene("_Scene_0");
+        }
     }
 
     public void NewGame()
     {
-        LeaderboardStore.ClearPlayerName();
-        RestartGame();
-    }
-
-    private void ShowNameEntryModal()
-    {
-        if (modal != null) Destroy(modal);
-        IsNamePromptOpen = true;
-        PauseGame();
-
-        Canvas canvas = FindAnyObjectByType<Canvas>();
-        modal = new GameObject("Gameplay Modal", typeof(RectTransform), typeof(Image));
-        modal.transform.SetParent(canvas.transform, false);
-        RectTransform overlay = modal.GetComponent<RectTransform>();
-        overlay.anchorMin = Vector2.zero;
-        overlay.anchorMax = Vector2.one;
-        overlay.offsetMin = overlay.offsetMax = Vector2.zero;
-        modal.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
-
-        AddModalText("Enter your name", 80f, 32f);
-        TMP_InputField nameField = CreateNameInputField(modal.transform);
-        nameField.transform.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, 10f);
-
-        GameObject buttonObject = new GameObject("Start Button", typeof(RectTransform), typeof(Image), typeof(Button));
-        buttonObject.transform.SetParent(modal.transform, false);
-        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
-        buttonRect.sizeDelta = new Vector2(320f, 64f);
-        buttonRect.anchoredPosition = new Vector2(0f, -90f);
-        buttonObject.GetComponent<Image>().color = new Color(0.1f, 0.4f, 0.55f);
-        Button button = buttonObject.GetComponent<Button>();
-        button.targetGraphic = buttonObject.GetComponent<Image>();
-        button.onClick.AddListener(() => SubmitPlayerName(nameField));
-        TextMeshProUGUI label = AddModalText("Start", 0f, 24f);
-        label.transform.SetParent(buttonObject.transform, false);
-        label.rectTransform.sizeDelta = buttonRect.sizeDelta;
-        nameField.ActivateInputField();
-        button.Select();
-    }
-
-    private void SubmitPlayerName(TMP_InputField nameField)
-    {
-        string name = nameField != null ? nameField.text.Trim() : string.Empty;
-        if (string.IsNullOrEmpty(name)) return;
-        LeaderboardStore.SetPlayerName(name);
-        IsNamePromptOpen = false;
-        if (modal != null) Destroy(modal);
-        HighScore.RefreshDisplay();
-        Time.timeScale = resumeTimeScale > 0f ? resumeTimeScale : 1f;
-    }
-
-    private TMP_InputField CreateNameInputField(Transform parent)
-    {
-        GameObject inputRoot = new GameObject("Name Input", typeof(RectTransform), typeof(Image));
-        inputRoot.transform.SetParent(parent, false);
-        RectTransform rootRect = inputRoot.GetComponent<RectTransform>();
-        rootRect.sizeDelta = new Vector2(360f, 48f);
-        inputRoot.GetComponent<Image>().color = new Color(0.1f, 0.12f, 0.18f, 1f);
-
-        GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
-        textArea.transform.SetParent(inputRoot.transform, false);
-        RectTransform textAreaRect = textArea.GetComponent<RectTransform>();
-        textAreaRect.anchorMin = Vector2.zero;
-        textAreaRect.anchorMax = Vector2.one;
-        textAreaRect.offsetMin = new Vector2(10f, 6f);
-        textAreaRect.offsetMax = new Vector2(-10f, -6f);
-
-        GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObject.transform.SetParent(textArea.transform, false);
-        TextMeshProUGUI inputText = textObject.GetComponent<TextMeshProUGUI>();
-        inputText.fontSize = 24f;
-        inputText.color = Color.white;
-        RectTransform textRect = textObject.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = textRect.offsetMax = Vector2.zero;
-
-        GameObject placeholderObject = new GameObject("Placeholder", typeof(RectTransform), typeof(TextMeshProUGUI));
-        placeholderObject.transform.SetParent(textArea.transform, false);
-        TextMeshProUGUI placeholder = placeholderObject.GetComponent<TextMeshProUGUI>();
-        placeholder.text = "Your name";
-        placeholder.fontSize = 24f;
-        placeholder.color = new Color(1f, 1f, 1f, 0.4f);
-        RectTransform placeholderRect = placeholderObject.GetComponent<RectTransform>();
-        placeholderRect.anchorMin = Vector2.zero;
-        placeholderRect.anchorMax = Vector2.one;
-        placeholderRect.offsetMin = placeholderRect.offsetMax = Vector2.zero;
-
-        TMP_InputField field = inputRoot.AddComponent<TMP_InputField>();
-        field.textViewport = textAreaRect;
-        field.textComponent = inputText;
-        field.placeholder = placeholder;
-        return field;
-    }
-
-    private void ShowEndGameModal(string title, string description)
-    {
-        if (modal != null) Destroy(modal);
-        Canvas canvas = FindAnyObjectByType<Canvas>();
-        modal = new GameObject("Gameplay Modal", typeof(RectTransform), typeof(Image));
-        modal.transform.SetParent(canvas.transform, false);
-        RectTransform overlay = modal.GetComponent<RectTransform>();
-        overlay.anchorMin = Vector2.zero;
-        overlay.anchorMax = Vector2.one;
-        overlay.offsetMin = overlay.offsetMax = Vector2.zero;
-        modal.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
-        AddModalText(title, 100f, 34f);
-        AddModalText(description, 20f, 19f);
-        CreateModalButton("Restart", -80f, RestartGame);
-        CreateModalButton("New Game", -160f, NewGame);
-    }
-
-    private void CreateModalButton(string label, float y, UnityEngine.Events.UnityAction action)
-    {
-        GameObject buttonObject = new GameObject(label + " Button", typeof(RectTransform), typeof(Image), typeof(Button));
-        buttonObject.transform.SetParent(modal.transform, false);
-        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
-        buttonRect.sizeDelta = new Vector2(320f, 64f);
-        buttonRect.anchoredPosition = new Vector2(0f, y);
-        buttonObject.GetComponent<Image>().color = new Color(0.1f, 0.4f, 0.55f);
-        Button button = buttonObject.GetComponent<Button>();
-        button.targetGraphic = buttonObject.GetComponent<Image>();
-        button.onClick.AddListener(action);
-        TextMeshProUGUI buttonLabel = AddModalText(label, 0f, 22f);
-        buttonLabel.transform.SetParent(buttonObject.transform, false);
-        buttonLabel.rectTransform.sizeDelta = buttonRect.sizeDelta;
-    }
-
-    private void ShowModal(string title, string description, string buttonText, UnityEngine.Events.UnityAction action)
-    {
-        if (modal != null) Destroy(modal);
-        Canvas canvas = FindAnyObjectByType<Canvas>();
-        modal = new GameObject("Gameplay Modal", typeof(RectTransform), typeof(Image));
-        modal.transform.SetParent(canvas.transform, false);
-        RectTransform overlay = modal.GetComponent<RectTransform>();
-        overlay.anchorMin = Vector2.zero;
-        overlay.anchorMax = Vector2.one;
-        overlay.offsetMin = overlay.offsetMax = Vector2.zero;
-        modal.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
-        AddModalText(title, 100f, 34f);
-        AddModalText(description, 20f, 19f);
-
-        GameObject buttonObject = new GameObject("Continue Button", typeof(RectTransform), typeof(Image), typeof(Button));
-        buttonObject.transform.SetParent(modal.transform, false);
-        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
-        buttonRect.sizeDelta = new Vector2(360f, 64f);
-        buttonRect.anchoredPosition = new Vector2(0f, -90f);
-        buttonObject.GetComponent<Image>().color = new Color(0.1f, 0.4f, 0.55f);
-        Button button = buttonObject.GetComponent<Button>();
-        button.targetGraphic = buttonObject.GetComponent<Image>();
-        button.onClick.AddListener(action);
-        TextMeshProUGUI label = AddModalText(buttonText, 0f, 22f);
-        label.transform.SetParent(buttonObject.transform, false);
-        label.rectTransform.sizeDelta = buttonRect.sizeDelta;
-        button.Select();
-    }
-
-    private TextMeshProUGUI AddModalText(string text, float y, float fontSize)
-    {
-        GameObject textObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObject.transform.SetParent(modal.transform, false);
-        TextMeshProUGUI label = textObject.GetComponent<TextMeshProUGUI>();
-        label.text = text;
-        label.fontSize = fontSize;
-        label.color = Color.white;
-        label.alignment = TextAlignmentOptions.Center;
-        label.raycastTarget = false;
-        label.rectTransform.sizeDelta = new Vector2(580f, 90f);
-        label.rectTransform.anchoredPosition = new Vector2(0f, y);
-        return label;
+        if (gameUI != null) gameUI.NewGame();
+        else
+        {
+            LeaderboardStore.ClearPlayerName();
+            RestartGame();
+        }
     }
 
     void OnDestroy()
     {
         if (scoreCounter != null) scoreCounter.ScoreChanged -= OnScoreChanged;
-        if (IsShieldPromptOpen || IsNamePromptOpen || IsGameOver) Time.timeScale = 1f;
+        if (gameUI != null)
+        {
+            gameUI.ShieldAccepted -= ActivateShielding;
+            gameUI.RestartRequested -= RestartGame;
+            gameUI.NewGameRequested -= NewGame;
+        }
+        if (IsGameOver || IsShieldPromptOpen || IsNamePromptOpen) Time.timeScale = 1f;
         if (bounceMaterial != null) Destroy(bounceMaterial);
         if (padsRoot != null) Destroy(padsRoot);
-        if (modal != null) Destroy(modal);
     }
 }
