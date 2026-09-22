@@ -7,12 +7,19 @@ using UnityEngine.UI;
 [DefaultExecutionOrder(-100)]
 public class ApplePicker : MonoBehaviour
 {
-    [Header("Inscribed")]
-    public GameObject basketPrefab;
+    [Header("Basket Rig")]
+    public Basket basketRig;
+    public Transform basketBottomsParent;
+    public GameObject basketBottomPrefab;
     public int numBaskets = 3;
     public float basketBottomY = -14f;
     public float basketSpacingY = 2f;
     public List<GameObject> basketList;
+
+    [Header("Shielding (scene objects under Basket)")]
+    public GameObject shieldsRoot;
+    public Transform shieldLeft;
+    public Transform shieldRight;
 
     [Header("Rewards")]
     public int normalApplePoints = 100;
@@ -42,17 +49,30 @@ public class ApplePicker : MonoBehaviour
     private ScoreCounter scoreCounter;
     private float targetBasketX;
     private int lastLossFrame = -1;
-    private Rigidbody leftShield;
-    private Rigidbody rightShield;
-    private GameObject shieldingRoot;
     private GameObject modal;
     private PhysicsMaterial bounceMaterial;
+    private GameObject padsRoot;
     private float resumeTimeScale = 1f;
 
     void Start()
     {
         basketList = new List<GameObject>();
+        if (basketRig == null) basketRig = FindAnyObjectByType<Basket>();
+        if (basketBottomsParent == null && basketRig != null)
+            basketBottomsParent = basketRig.transform.Find("BasketBottoms");
+        if (shieldsRoot == null && basketRig != null)
+        {
+            Transform shields = basketRig.transform.Find("Shields");
+            if (shields != null) shieldsRoot = shields.gameObject;
+        }
+        if (shieldLeft == null && shieldsRoot != null)
+            shieldLeft = shieldsRoot.transform.Find("ShieldLeft");
+        if (shieldRight == null && shieldsRoot != null)
+            shieldRight = shieldsRoot.transform.Find("ShieldRight");
+        if (shieldsRoot != null) shieldsRoot.SetActive(false);
+
         NextBasketRewardScore = Mathf.Max(1, firstBasketRewardScore);
+        PositionBasketRig();
         for (int i = 0; i < numBaskets; i++) RestoreBasket();
         scoreCounter = FindAnyObjectByType<ScoreCounter>();
         if (scoreCounter != null)
@@ -69,7 +89,7 @@ public class ApplePicker : MonoBehaviour
     {
         if (!IsPlaying) return;
         BasketX = Mathf.MoveTowards(BasketX, ClampBasketX(targetBasketX), basketMoveSpeed * Time.fixedDeltaTime);
-        if (ShieldingUnlocked) UpdateShields(false);
+        // Shields are children of the basket rig and move with it automatically.
     }
 
     public void SetBasketTargetX(float x)
@@ -77,8 +97,11 @@ public class ApplePicker : MonoBehaviour
         if (IsPlaying) targetBasketX = ClampBasketX(x);
     }
 
-    private float BasketHalfWidth => basketPrefab.transform.localScale.x *
-        basketPrefab.GetComponent<BoxCollider>().size.x * 0.5f;
+    private float BasketHalfWidth => basketBottomPrefab.transform.localScale.x *
+        basketBottomPrefab.GetComponent<BoxCollider>().size.x * 0.5f;
+
+    private float BasketBottomHeight => basketBottomPrefab.transform.localScale.y *
+        basketBottomPrefab.GetComponent<BoxCollider>().size.y;
 
     private float ClampBasketX(float x)
     {
@@ -108,12 +131,23 @@ public class ApplePicker : MonoBehaviour
 
     public bool RestoreBasket()
     {
-        if (basketList.Count >= numBaskets) return false;
-        Vector3 pos = new Vector3(BasketX, basketBottomY + basketSpacingY * basketList.Count, 0f);
-        GameObject basket = Instantiate(basketPrefab, pos, basketPrefab.transform.rotation);
-        basketList.Add(basket);
-        if (ShieldingUnlocked) UpdateShields(true);
+        if (basketList.Count >= numBaskets || basketBottomPrefab == null || basketBottomsParent == null) return false;
+        float localY = basketSpacingY * basketList.Count;
+        GameObject bottom = Instantiate(basketBottomPrefab, basketBottomsParent);
+        bottom.transform.localPosition = new Vector3(0f, localY, 0f);
+        bottom.transform.localRotation = Quaternion.identity;
+        basketList.Add(bottom);
+        if (ShieldingUnlocked) UpdateShields();
         return true;
+    }
+
+    private void PositionBasketRig()
+    {
+        if (basketRig == null) return;
+        Rigidbody body = basketRig.GetComponent<Rigidbody>();
+        Vector3 pos = new Vector3(BasketX, basketBottomY, 0f);
+        if (body != null) body.position = pos;
+        else basketRig.transform.position = pos;
     }
 
     public void AppleMissed()
@@ -128,20 +162,37 @@ public class ApplePicker : MonoBehaviour
             else Destroy(tempGO);
         }
         int basketIndex = basketList.Count - 1;
-        GameObject basketGO = basketList[basketIndex];
+        GameObject bottom = basketList[basketIndex];
         basketList.RemoveAt(basketIndex);
-        basketGO.SetActive(false);
-        Destroy(basketGO);
+        Destroy(bottom);
         if (basketList.Count == 0)
             ShowGameOverModal();
-        else if (ShieldingUnlocked) UpdateShields(true);
+        else if (ShieldingUnlocked) UpdateShields();
     }
 
     public void ActivateShielding()
     {
         if (!IsShieldPromptOpen || IsGameOver || ShieldingUnlocked) return;
         ShieldingUnlocked = true;
-        shieldingRoot = new GameObject("Shielding");
+        EnsureBounceMaterial();
+        ConfigureShield(shieldLeft);
+        ConfigureShield(shieldRight);
+        if (shieldsRoot != null) shieldsRoot.SetActive(true);
+        BasketX = ClampBasketX(BasketX);
+        targetBasketX = BasketX;
+        PositionBasketRig();
+        UpdateShields();
+        padsRoot = new GameObject("Bounce Pads");
+        CreatePad(-1f);
+        CreatePad(1f);
+        IsShieldPromptOpen = false;
+        if (modal != null) Destroy(modal);
+        Time.timeScale = resumeTimeScale;
+    }
+
+    private void EnsureBounceMaterial()
+    {
+        if (bounceMaterial != null) return;
         bounceMaterial = new PhysicsMaterial("Shield and pad bounce")
         {
             bounciness = 1f,
@@ -150,48 +201,47 @@ public class ApplePicker : MonoBehaviour
             bounceCombine = PhysicsMaterialCombine.Maximum,
             frictionCombine = PhysicsMaterialCombine.Minimum
         };
-        leftShield = CreateBounceSurface("Left Shield", shieldColor, true).GetComponent<Rigidbody>();
-        rightShield = CreateBounceSurface("Right Shield", shieldColor, true).GetComponent<Rigidbody>();
-        BasketX = ClampBasketX(BasketX);
-        targetBasketX = BasketX;
-        foreach (GameObject basket in basketList)
-        {
-            Rigidbody body = basket.GetComponent<Rigidbody>();
-            body.position = new Vector3(BasketX, body.position.y, body.position.z);
-        }
-        UpdateShields(true);
-        CreatePad(-1f);
-        CreatePad(1f);
-        IsShieldPromptOpen = false;
-        if (modal != null) Destroy(modal);
-        Time.timeScale = resumeTimeScale;
     }
 
-    private GameObject CreateBounceSurface(string surfaceName, Color color, bool moving)
+    private void ConfigureShield(Transform shield)
+    {
+        if (shield == null) return;
+        Collider collider = shield.GetComponent<Collider>();
+        if (collider != null) collider.sharedMaterial = bounceMaterial;
+        shield.gameObject.layer = LayerMask.NameToLayer("Basket");
+        Renderer renderer = shield.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            var properties = new MaterialPropertyBlock();
+            properties.SetColor("_BaseColor", shieldColor);
+            properties.SetColor("_Color", shieldColor);
+            renderer.SetPropertyBlock(properties);
+        }
+        AppleBounceSurface bounceSurface = shield.GetComponent<AppleBounceSurface>();
+        if (bounceSurface == null) bounceSurface = shield.gameObject.AddComponent<AppleBounceSurface>();
+        bounceSurface.isShield = true;
+        bounceSurface.padAimStrength = padAimStrength;
+        bounceSurface.shieldHitEffectPrefab = shieldHitEffectPrefab;
+    }
+
+    private GameObject CreateBounceSurface(string surfaceName, Color color, bool isShield)
     {
         GameObject surface = GameObject.CreatePrimitive(PrimitiveType.Cube);
         surface.name = surfaceName;
-        surface.transform.SetParent(shieldingRoot.transform);
+        surface.transform.SetParent(padsRoot.transform);
         surface.layer = LayerMask.NameToLayer("Basket");
         surface.GetComponent<Collider>().sharedMaterial = bounceMaterial;
         Renderer surfaceRenderer = surface.GetComponent<Renderer>();
-        surfaceRenderer.sharedMaterial = basketPrefab.GetComponent<Renderer>().sharedMaterial;
+        if (basketBottomPrefab != null)
+            surfaceRenderer.sharedMaterial = basketBottomPrefab.GetComponent<Renderer>().sharedMaterial;
         var properties = new MaterialPropertyBlock();
         properties.SetColor("_BaseColor", color);
         properties.SetColor("_Color", color);
         surfaceRenderer.SetPropertyBlock(properties);
         AppleBounceSurface bounceSurface = surface.AddComponent<AppleBounceSurface>();
-        bounceSurface.isShield = moving;
+        bounceSurface.isShield = isShield;
         bounceSurface.padAimStrength = padAimStrength;
         bounceSurface.shieldHitEffectPrefab = shieldHitEffectPrefab;
-        if (moving)
-        {
-            Rigidbody body = surface.AddComponent<Rigidbody>();
-            body.useGravity = false;
-            body.isKinematic = true;
-            body.interpolation = RigidbodyInterpolation.Interpolate;
-            body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-        }
         return surface;
     }
 
@@ -208,23 +258,22 @@ public class ApplePicker : MonoBehaviour
             Mathf.Max(Apple.bottomY + extents.y + 1f, camera.transform.position.y - camera.orthographicSize + extents.y + 0.2f), 0f);
     }
 
-    private void UpdateShields(bool teleport)
+    private void UpdateShields()
     {
-        if (leftShield == null || rightShield == null || basketList.Count == 0) return;
-        float basketHeight = basketPrefab.transform.localScale.y * basketPrefab.GetComponent<BoxCollider>().size.y;
-        float bottom = basketBottomY - basketHeight * 0.5f;
-        float top = basketBottomY + basketSpacingY * (basketList.Count - 1) + basketHeight * 0.5f + shieldTopExtension;
-        Vector3 size = new Vector3(shieldThickness, top - bottom, basketPrefab.transform.localScale.z);
-        MoveShield(leftShield, -1f, size, (top + bottom) * 0.5f, teleport);
-        MoveShield(rightShield, 1f, size, (top + bottom) * 0.5f, teleport);
+        if (shieldLeft == null || shieldRight == null || basketList.Count == 0) return;
+        float bottom = -BasketBottomHeight * 0.5f;
+        float top = basketSpacingY * (basketList.Count - 1) + BasketBottomHeight * 0.5f + shieldTopExtension;
+        float height = top - bottom;
+        float centerY = (top + bottom) * 0.5f;
+        float depth = basketBottomPrefab.transform.localScale.z;
+        LayoutShield(shieldLeft, -1f, height, centerY, depth);
+        LayoutShield(shieldRight, 1f, height, centerY, depth);
     }
 
-    private void MoveShield(Rigidbody body, float side, Vector3 size, float y, bool teleport)
+    private void LayoutShield(Transform shield, float side, float height, float centerY, float depth)
     {
-        if (body.transform.localScale != size) body.transform.localScale = size;
-        Vector3 position = new Vector3(BasketX + side * (BasketHalfWidth + shieldThickness * 0.5f), y, 0f);
-        if (teleport) body.position = position;
-        else body.MovePosition(position);
+        shield.localScale = new Vector3(shieldThickness, height, depth);
+        shield.localPosition = new Vector3(side * (BasketHalfWidth + shieldThickness * 0.5f), centerY, 0f);
     }
 
     public void TreeDied()
@@ -471,7 +520,7 @@ public class ApplePicker : MonoBehaviour
         if (scoreCounter != null) scoreCounter.ScoreChanged -= OnScoreChanged;
         if (IsShieldPromptOpen || IsNamePromptOpen || IsGameOver) Time.timeScale = 1f;
         if (bounceMaterial != null) Destroy(bounceMaterial);
-        if (shieldingRoot != null) Destroy(shieldingRoot);
+        if (padsRoot != null) Destroy(padsRoot);
         if (modal != null) Destroy(modal);
     }
 }

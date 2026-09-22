@@ -1,22 +1,20 @@
 using UnityEngine;
 
+// Root basket rig: reads input and moves the whole stack (bottoms + shields).
 public class Basket : MonoBehaviour
 {
-    public ScoreCounter scoreCounter;
     private ApplePicker picker;
     private Rigidbody body;
-    
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+
     void Start()
     {
-        if (scoreCounter == null) scoreCounter = FindAnyObjectByType<ScoreCounter>();
         picker = FindAnyObjectByType<ApplePicker>();
         body = GetComponent<Rigidbody>();
+        if (body == null) return;
         body.interpolation = RigidbodyInterpolation.Interpolate;
         body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
     }
 
-    // Update is called once per frame
     void Update()
     {
         if (picker == null || !picker.IsPlaying || Camera.main == null) return;
@@ -28,21 +26,9 @@ public class Basket : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (picker == null || !picker.IsPlaying) return;
+        if (picker == null || !picker.IsPlaying || body == null) return;
         Vector3 pos = body.position;
         pos.x = picker.BasketX;
         body.MovePosition(pos);
-    }
-
-    void OnCollisionEnter(Collision collision)
-    {
-        if (picker == null || !picker.IsPlaying) return;
-        Apple apple = collision.gameObject.GetComponent<Apple>();
-        if (apple != null && apple.TryConsume())
-        {
-            if (apple.type == AppleType.Poison) picker.AppleMissed();
-            else if (scoreCounter != null)
-                scoreCounter.AddPoints(apple.type == AppleType.Golden ? picker.goldenApplePoints : picker.normalApplePoints);
-        }
     }
 }
