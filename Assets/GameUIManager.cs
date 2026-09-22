@@ -66,6 +66,7 @@ public class GameUIManager : MonoBehaviour
         }
 
         HideAllModals();
+        SyncBackdrop();
     }
 
     void Start()
@@ -88,6 +89,19 @@ public class GameUIManager : MonoBehaviour
         IsNamePromptOpen = false;
         IsShieldPromptOpen = false;
         IsGameOverOpen = false;
+        SyncBackdrop();
+    }
+
+    private void SyncBackdrop()
+    {
+        if (backdropModal == null) return;
+        bool show = (startModal != null && startModal.activeSelf)
+            || (shieldModal != null && shieldModal.activeSelf)
+            || (gameOverModal != null && gameOverModal.activeSelf);
+        backdropModal.SetActive(show);
+        if (!show) return;
+        Image backdrop = backdropModal.GetComponent<Image>();
+        if (backdrop != null) backdrop.raycastTarget = true;
     }
 
     public void ShowNameEntry()
@@ -97,6 +111,7 @@ public class GameUIManager : MonoBehaviour
         IsNamePromptOpen = true;
         Pause();
         startModal.SetActive(true);
+        SyncBackdrop();
         if (nameField != null)
         {
             nameField.text = string.Empty;
@@ -111,6 +126,7 @@ public class GameUIManager : MonoBehaviour
         LeaderboardStore.SetPlayerName(name);
         IsNamePromptOpen = false;
         startModal.SetActive(false);
+        SyncBackdrop();
         HighScore.RefreshDisplay();
         Resume();
         NameSubmitted?.Invoke(name);
@@ -122,23 +138,30 @@ public class GameUIManager : MonoBehaviour
         IsShieldPromptOpen = true;
         Pause();
         shieldModal.SetActive(true);
+        SyncBackdrop();
     }
 
     public void HideShieldUnlock()
     {
         if (shieldModal != null) shieldModal.SetActive(false);
         IsShieldPromptOpen = false;
+        SyncBackdrop();
         Resume();
     }
 
     public void ShowGameOver(string title, string description)
     {
         if (gameOverModal == null) return;
+        if (startModal != null) startModal.SetActive(false);
+        if (shieldModal != null) shieldModal.SetActive(false);
+        IsNamePromptOpen = false;
+        IsShieldPromptOpen = false;
         IsGameOverOpen = true;
         Pause();
         if (gameOverBody != null)
             gameOverBody.text = string.IsNullOrEmpty(description) ? title : title + "\n" + description;
         gameOverModal.SetActive(true);
+        SyncBackdrop();
     }
 
     public void Pause()
