@@ -20,6 +20,8 @@ public class GameUIManager : MonoBehaviour
     private GameObject startModal;
     private GameObject shieldModal;
     private GameObject gameOverModal;
+    private GameObject backdropModal;
+    
     private TMP_InputField nameField;
     private Button startButton;
     private Button shieldButton;
@@ -33,6 +35,7 @@ public class GameUIManager : MonoBehaviour
         startModal = FindModal("StartModal");
         shieldModal = FindModal("ShieldModal");
         gameOverModal = FindModal("GameOverModal");
+        backdropModal = FindModal("ModalBackdrop");
 
         if (startModal != null)
         {
