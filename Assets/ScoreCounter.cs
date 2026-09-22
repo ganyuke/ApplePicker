@@ -1,20 +1,45 @@
+using System;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class ScoreCounter : MonoBehaviour
 {
     [Header("Dynamic")] public int score = 0;
-    private Text uiText;
+    private TextMeshProUGUI uiText;
+    private int lastNotifiedScore;
+    public event Action<int> ScoreChanged;
+
+    void Awake()
+    {
+        uiText = GetComponent<TextMeshProUGUI>();
+        lastNotifiedScore = score;
+    }
     
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        uiText = GetComponent<Text>();  
+        RefreshScore();
     }
 
     // Update is called once per frame
     void Update()
     {
-        uiText.text = score.ToString( "#,0");
+        // Also support changes made directly to the existing public score field.
+        if (score != lastNotifiedScore) RefreshScore();
+    }
+
+    public void AddPoints(int points)
+    {
+        score = (int)Math.Max(0L, Math.Min(int.MaxValue, (long)score + points));
+        RefreshScore();
+    }
+
+    private void RefreshScore()
+    {
+        if (uiText != null) uiText.text = score.ToString("#,0");
+        HighScore.TRY_SET_HIGH_SCORE(score);
+        if (score == lastNotifiedScore) return;
+        lastNotifiedScore = score;
+        ScoreChanged?.Invoke(score);
     }
 }
