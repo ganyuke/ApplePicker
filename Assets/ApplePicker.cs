@@ -1,22 +1,19 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 [DefaultExecutionOrder(-100)]
 public class ApplePicker : MonoBehaviour
 {
-    [Header("Basket Rig")]
-    public Basket basketRig;
-    public Transform basketBottomsParent;
-    public GameObject basketBottomPrefab;
+    const string BasketBottomPrefabPath = "Assets/BasketBottom.prefab";
+
+    [Header("Baskets")]
     public int numBaskets = 3;
     public float basketBottomY = -14f;
     public float basketSpacingY = 2f;
-    public List<GameObject> basketList;
-
-    [Header("Shielding (scene objects under Basket)")]
-    public GameObject shieldsRoot;
-    public Transform shieldLeft;
-    public Transform shieldRight;
 
     [Header("Rewards")]
     public int normalApplePoints = 100;
@@ -43,12 +40,26 @@ public class ApplePicker : MonoBehaviour
     public float BasketX { get; private set; }
     public long NextBasketRewardScore { get; private set; }
 
+    private Basket basketRig;
+    private Transform basketBottomsParent;
+    private GameObject basketBottomPrefab;
+    private GameObject shieldsRoot;
+    private Transform shieldLeft;
+    private Transform shieldRight;
+    private readonly List<GameObject> basketList = new List<GameObject>();
+
     private GameUIManager gameUI;
     private ScoreCounter scoreCounter;
     private float targetBasketX;
     private int lastLossFrame = -1;
     private PhysicsMaterial bounceMaterial;
     private GameObject padsRoot;
+    private BoxCollider basketBottomCollider;
+
+    void Awake()
+    {
+        ResolveReferences();
+    }
 
     void Start()
     {
@@ -60,19 +71,6 @@ public class ApplePicker : MonoBehaviour
             gameUI.NewGameRequested += NewGame;
         }
 
-        basketList = new List<GameObject>();
-        if (basketRig == null) basketRig = FindAnyObjectByType<Basket>();
-        if (basketBottomsParent == null && basketRig != null)
-            basketBottomsParent = basketRig.transform.Find("BasketBottoms");
-        if (shieldsRoot == null && basketRig != null)
-        {
-            Transform shields = basketRig.transform.Find("Shields");
-            if (shields != null) shieldsRoot = shields.gameObject;
-        }
-        if (shieldLeft == null && shieldsRoot != null)
-            shieldLeft = shieldsRoot.transform.Find("ShieldLeft");
-        if (shieldRight == null && shieldsRoot != null)
-            shieldRight = shieldsRoot.transform.Find("ShieldRight");
         if (shieldsRoot != null) shieldsRoot.SetActive(false);
 
         NextBasketRewardScore = Mathf.Max(1, firstBasketRewardScore);
@@ -87,6 +85,56 @@ public class ApplePicker : MonoBehaviour
         }
     }
 
+    private void ResolveReferences()
+    {
+        basketRig = FindAnyObjectByType<Basket>();
+        if (basketRig == null)
+        {
+            Debug.LogWarning("ApplePicker: no Basket found in scene.", this);
+            return;
+        }
+
+        basketBottomsParent = FindChildTransform(basketRig.transform, "BasketBottoms");
+        if (basketBottomsParent == null)
+            basketBottomsParent = basketRig.transform;
+
+        Transform shields = FindChildTransform(basketRig.transform, "Shields");
+        shieldsRoot = shields != null ? shields.gameObject : null;
+        if (shields != null)
+        {
+            shieldLeft = FindChildTransform(shields, "ShieldLeft");
+            shieldRight = FindChildTransform(shields, "ShieldRight", "Right");
+        }
+
+        basketBottomPrefab = LoadBasketBottomPrefab();
+        if (basketBottomPrefab != null)
+            basketBottomCollider = basketBottomPrefab.GetComponent<BoxCollider>();
+        else
+            Debug.LogWarning("ApplePicker: could not load BasketBottom.prefab.", this);
+    }
+
+    private static Transform FindChildTransform(Transform parent, string exactName, string nameContains = null)
+    {
+        Transform direct = parent.Find(exactName);
+        if (direct != null) return direct;
+        if (string.IsNullOrEmpty(nameContains)) return null;
+        foreach (Transform child in parent)
+        {
+            if (child.name.IndexOf(nameContains, StringComparison.OrdinalIgnoreCase) >= 0)
+                return child;
+        }
+        return null;
+    }
+
+    private static GameObject LoadBasketBottomPrefab()
+    {
+#if UNITY_EDITOR
+        return AssetDatabase.LoadAssetAtPath<GameObject>(BasketBottomPrefabPath);
+#else
+        return Resources.Load<GameObject>("BasketBottom");
+#endif
+    }
+
     void FixedUpdate()
     {
         if (!IsPlaying) return;
@@ -98,11 +146,23 @@ public class ApplePicker : MonoBehaviour
         if (IsPlaying) targetBasketX = ClampBasketX(x);
     }
 
-    private float BasketHalfWidth => basketBottomPrefab.transform.localScale.x *
-        basketBottomPrefab.GetComponent<BoxCollider>().size.x * 0.5f;
+    private float BasketHalfWidth
+    {
+        get
+        {
+            if (basketBottomPrefab == null || basketBottomCollider == null) return 2f;
+            return basketBottomPrefab.transform.localScale.x * basketBottomCollider.size.x * 0.5f;
+        }
+    }
 
-    private float BasketBottomHeight => basketBottomPrefab.transform.localScale.y *
-        basketBottomPrefab.GetComponent<BoxCollider>().size.y;
+    private float BasketBottomHeight
+    {
+        get
+        {
+            if (basketBottomPrefab == null || basketBottomCollider == null) return 1f;
+            return basketBottomPrefab.transform.localScale.y * basketBottomCollider.size.y;
+        }
+    }
 
     private float ClampBasketX(float x)
     {
@@ -270,7 +330,7 @@ public class ApplePicker : MonoBehaviour
         float top = basketSpacingY * (basketList.Count - 1) + BasketBottomHeight * 0.5f + shieldTopExtension;
         float height = top - bottom;
         float centerY = (top + bottom) * 0.5f;
-        float depth = basketBottomPrefab.transform.localScale.z;
+        float depth = basketBottomPrefab != null ? basketBottomPrefab.transform.localScale.z : 4f;
         LayoutShield(shieldLeft, -1f, height, centerY, depth);
         LayoutShield(shieldRight, 1f, height, centerY, depth);
     }
