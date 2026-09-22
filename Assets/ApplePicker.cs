@@ -1,16 +1,13 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 [DefaultExecutionOrder(-100)]
 public class ApplePicker : MonoBehaviour
 {
-    const string BasketBottomPrefabPath = "Assets/BasketBottom.prefab";
-
     [Header("Baskets")]
+    [Tooltip("Required. Drag Assets/BasketBottom.prefab from the Project window.")]
+    public GameObject basketBottomPrefab;
     public int numBaskets = 3;
     public float basketBottomY = -14f;
     public float basketSpacingY = 2f;
@@ -42,7 +39,6 @@ public class ApplePicker : MonoBehaviour
 
     private Basket basketRig;
     private Transform basketBottomsParent;
-    private GameObject basketBottomPrefab;
     private GameObject shieldsRoot;
     private Transform shieldLeft;
     private Transform shieldRight;
@@ -58,11 +54,19 @@ public class ApplePicker : MonoBehaviour
 
     void Awake()
     {
+        if (!ValidateBasketBottomPrefab()) return;
         ResolveReferences();
+    }
+
+    void OnValidate()
+    {
+        ValidateBasketBottomPrefab();
     }
 
     void Start()
     {
+        if (basketBottomPrefab == null || basketBottomCollider == null) return;
+
         gameUI = FindAnyObjectByType<GameUIManager>();
         if (gameUI != null)
         {
@@ -106,11 +110,31 @@ public class ApplePicker : MonoBehaviour
             shieldRight = FindChildTransform(shields, "ShieldRight", "Right");
         }
 
-        basketBottomPrefab = LoadBasketBottomPrefab();
-        if (basketBottomPrefab != null)
-            basketBottomCollider = basketBottomPrefab.GetComponent<BoxCollider>();
-        else
-            Debug.LogWarning("ApplePicker: could not load BasketBottom.prefab.", this);
+        basketBottomCollider = basketBottomPrefab.GetComponent<BoxCollider>();
+    }
+
+    private bool ValidateBasketBottomPrefab()
+    {
+        if (basketBottomPrefab == null)
+        {
+            Debug.LogError("ApplePicker: Basket Bottom Prefab is required. Assign Assets/BasketBottom.prefab.", this);
+            return false;
+        }
+
+        if (basketBottomPrefab.scene.IsValid())
+        {
+            Debug.LogError("ApplePicker: Basket Bottom Prefab must be Assets/BasketBottom.prefab, not a scene object.", this);
+            return false;
+        }
+
+        if (basketBottomPrefab.GetComponent<BoxCollider>() == null)
+        {
+            Debug.LogError("ApplePicker: Basket Bottom Prefab must have a BoxCollider.", this);
+            return false;
+        }
+
+        basketBottomCollider = basketBottomPrefab.GetComponent<BoxCollider>();
+        return true;
     }
 
     private static Transform FindChildTransform(Transform parent, string exactName, string nameContains = null)
@@ -124,15 +148,6 @@ public class ApplePicker : MonoBehaviour
                 return child;
         }
         return null;
-    }
-
-    private static GameObject LoadBasketBottomPrefab()
-    {
-#if UNITY_EDITOR
-        return AssetDatabase.LoadAssetAtPath<GameObject>(BasketBottomPrefabPath);
-#else
-        return Resources.Load<GameObject>("BasketBottom");
-#endif
     }
 
     void FixedUpdate()
