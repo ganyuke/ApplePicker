@@ -260,7 +260,9 @@ public class AppleGameplayTests
         tree.recoveryDelay = 0.15f;
         tree.recoveryPerSecond = 100f;
         Renderer renderer = tree.GetComponentInChildren<Renderer>();
-        Color original = renderer.sharedMaterial.color;
+        Material material = renderer.sharedMaterial;
+        Color original = material != null && material.HasProperty("_BaseColor")
+            ? material.GetColor("_BaseColor") : material.color;
         Apple apple = HitTree();
         Assert.That(tree.TryHit(apple), Is.False);
         Assert.That(tree.Health, Is.EqualTo(75f));

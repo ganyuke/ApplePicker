@@ -274,6 +274,17 @@ MonoBehaviour:
   basketBottomY: -14
   basketSpacingY: 2
   basketList: []
+  normalApplePoints: 100
+  goldenApplePoints: 500
+  firstBasketRewardScore: 5000
+  shieldingScore: 5000
+  basketMoveSpeed: 60
+  shieldThickness: 0.35
+  shieldTopExtension: 1.5
+  padSize: {x: 4, y: 0.5, z: 4}
+  padAngle: 25
+  shieldColor: {r: 0.2, g: 0.85, b: 1, a: 1}
+  padColor: {r: 1, g: 0.55, b: 0.15, a: 1}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0

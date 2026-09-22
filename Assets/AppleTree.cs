@@ -57,10 +57,7 @@ public class AppleTree : MonoBehaviour
         healthyColors = new Color[treeRenderers.Length];
         colorProperties = new MaterialPropertyBlock();
         for (int i = 0; i < treeRenderers.Length; i++)
-        {
-            Material material = treeRenderers[i].sharedMaterial;
-            healthyColors[i] = material != null ? material.color : Color.white;
-        }
+            healthyColors[i] = GetRendererBaseColor(treeRenderers[i]);
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -160,6 +157,14 @@ public class AppleTree : MonoBehaviour
             stunnedUntil = Time.time + stunDuration;
         }
         return true;
+    }
+
+    private static Color GetRendererBaseColor(Renderer renderer)
+    {
+        Material material = renderer.sharedMaterial;
+        if (material == null) return Color.white;
+        if (material.HasProperty("_BaseColor")) return material.GetColor("_BaseColor");
+        return material.color;
     }
 
     private void UpdateHealthColors()
