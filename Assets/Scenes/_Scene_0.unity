@@ -283,6 +283,7 @@ MonoBehaviour:
   shieldTopExtension: 1.5
   padSize: {x: 4, y: 0.5, z: 4}
   padAngle: 25
+  padAimStrength: 0.65
   shieldColor: {r: 0.2, g: 0.85, b: 1, a: 1}
   padColor: {r: 1, g: 0.55, b: 0.15, a: 1}
 --- !u!1 &410087039
@@ -555,7 +556,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 176cac3f2ae446ba8f2c52b37aa2eaf2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HighScore
-  resetHighScoreNow: 0
+  resetLeaderboardNow: 0
 --- !u!114 &820328316
 MonoBehaviour:
   m_ObjectHideFlags: 0

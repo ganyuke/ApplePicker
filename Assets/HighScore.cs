@@ -1,53 +1,54 @@
+using System.Collections.Generic;
+using System.Text;
 using TMPro;
 using UnityEngine;
 
 public class HighScore : MonoBehaviour
 {
-    static private TextMeshProUGUI _UI_TEXT;
-    static private int _SCORE = 1000;
-
-    private TextMeshProUGUI txtCom;
+    static private TextMeshProUGUI uiText;
 
     void Awake()
     {
-        _UI_TEXT = GetComponent<TextMeshProUGUI>();
-        if (PlayerPrefs.HasKey("HighScore"))
-        {
-            SCORE = PlayerPrefs.GetInt("HighScore");
-        }
-        PlayerPrefs.SetInt("HighScore", SCORE);
+        uiText = GetComponent<TextMeshProUGUI>();
+        RectTransform rect = GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(300f, 240f);
+        uiText.fontSize = 22f;
+        uiText.alignment = TextAlignmentOptions.TopLeft;
+        RefreshDisplay();
     }
 
-    public static int SCORE
+    public static void RefreshDisplay()
     {
-        get => _SCORE;
-        private set
+        if (uiText == null) return;
+        var builder = new StringBuilder("Leaderboard\n");
+        List<LeaderboardEntry> entries = LeaderboardStore.GetEntries();
+        if (entries.Count == 0)
         {
-            _SCORE = value;
-            PlayerPrefs.SetInt("HighScore", value);
-            if (_UI_TEXT != null)
+            builder.AppendLine("No scores yet");
+        }
+        else
+        {
+            for (int i = 0; i < entries.Count; i++)
             {
-                _UI_TEXT.text = "High Score: "  + value.ToString("#,0");
+                LeaderboardEntry entry = entries[i];
+                builder.AppendLine($"{i + 1}. {entry.name} - {entry.score:N0}");
             }
         }
+
+        if (LeaderboardStore.HasPlayerName)
+            builder.AppendLine().Append("Playing as ").Append(LeaderboardStore.PlayerName);
+        uiText.text = builder.ToString();
     }
 
-    static public void TRY_SET_HIGH_SCORE(int scoreToTry)
-    {
-        if (scoreToTry <= SCORE) return;
-        SCORE = scoreToTry;
-    }
-
-    [Tooltip("Check this box to reset the HighScore in PlayerPrefs")]
-    public bool resetHighScoreNow = false;
+    [Tooltip("Check this box to clear saved leaderboard scores in PlayerPrefs")]
+    public bool resetLeaderboardNow = false;
 
     void OnDrawGizmos()
     {
-        if (resetHighScoreNow)
-        {
-            resetHighScoreNow = false;
-            PlayerPrefs.SetInt("HighScore", 1000);
-            Debug.LogWarning("PlayerPrefs HighScore reset to 1,000.");
-        }
+        if (!resetLeaderboardNow) return;
+        resetLeaderboardNow = false;
+        PlayerPrefs.DeleteKey("LeaderboardData");
+        PlayerPrefs.Save();
+        Debug.LogWarning("Leaderboard cleared from PlayerPrefs.");
     }
 }

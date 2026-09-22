@@ -10,7 +10,11 @@ public class Apple : MonoBehaviour
     public AppleType type;
     public Color poisonColor = new Color(0.65f, 0.12f, 0.9f);
     public Color goldenColor = new Color(1f, 0.72f, 0.04f);
+    [Header("Type Effects (optional prefabs)")]
+    public ParticleSystem goldenSparklePrefab;
+    public ParticleSystem poisonCloudPrefab;
     public bool IsReturned { get; private set; }
+    public bool IsShieldReturned { get; private set; }
     public bool IsResolved { get; private set; }
 
     private Rigidbody body;
@@ -39,12 +43,21 @@ public class Apple : MonoBehaviour
             properties.SetColor("_Color", color);
         }
         appleRenderer.SetPropertyBlock(properties);
+        AttachTypeEffect();
     }
 
     public void MarkReturned()
     {
         if (IsResolved || IsReturned) return;
         IsReturned = true;
+        gameObject.layer = LayerMask.NameToLayer("ReturnedApple");
+    }
+
+    public void MarkShieldReturned()
+    {
+        if (IsResolved || IsReturned) return;
+        IsReturned = true;
+        IsShieldReturned = true;
         gameObject.layer = LayerMask.NameToLayer("ReturnedApple");
     }
 
@@ -63,9 +76,22 @@ public class Apple : MonoBehaviour
     void Update()
     {
         if (IsResolved || (picker != null && !picker.IsPlaying)) return;
-        if (transform.position.y < bottomY && TryConsume())
-        {
-            if (type == AppleType.Normal && picker != null) picker.AppleMissed();
-        }
+        if (transform.position.y < bottomY && TryConsume() && picker != null && CostsBasketOnMiss())
+            picker.AppleMissed();
+    }
+
+    private bool CostsBasketOnMiss()
+    {
+        if (IsShieldReturned) return false;
+        return type == AppleType.Normal || type == AppleType.Golden;
+    }
+
+    private void AttachTypeEffect()
+    {
+        ParticleSystem effectPrefab = type == AppleType.Golden ? goldenSparklePrefab :
+            type == AppleType.Poison ? poisonCloudPrefab : null;
+        if (effectPrefab == null) return;
+        ParticleSystem effect = Instantiate(effectPrefab, transform);
+        effect.transform.localPosition = Vector3.zero;
     }
 }

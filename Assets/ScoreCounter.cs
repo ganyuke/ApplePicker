@@ -37,7 +37,6 @@ public class ScoreCounter : MonoBehaviour
     private void RefreshScore()
     {
         if (uiText != null) uiText.text = score.ToString("#,0");
-        HighScore.TRY_SET_HIGH_SCORE(score);
         if (score == lastNotifiedScore) return;
         lastNotifiedScore = score;
         ScoreChanged?.Invoke(score);

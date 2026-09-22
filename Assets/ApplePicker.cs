@@ -26,13 +26,16 @@ public class ApplePicker : MonoBehaviour
     [Min(0f)] public float shieldTopExtension = 1.5f;
     public Vector3 padSize = new Vector3(4f, 0.5f, 4f);
     [Range(0f, 60f)] public float padAngle = 25f;
+    [Range(0f, 1f)] public float padAimStrength = 0.65f;
     public Color shieldColor = new Color(0.2f, 0.85f, 1f);
     public Color padColor = new Color(1f, 0.55f, 0.15f);
+    public ParticleSystem shieldHitEffectPrefab;
 
     public bool ShieldingUnlocked { get; private set; }
     public bool IsShieldPromptOpen { get; private set; }
+    public bool IsNamePromptOpen { get; private set; }
     public bool IsGameOver { get; private set; }
-    public bool IsPlaying => !IsShieldPromptOpen && !IsGameOver && Time.timeScale > 0f;
+    public bool IsPlaying => !IsShieldPromptOpen && !IsNamePromptOpen && !IsGameOver && Time.timeScale > 0f;
     public float BasketX { get; private set; }
     public long NextBasketRewardScore { get; private set; }
 
@@ -57,6 +60,9 @@ public class ApplePicker : MonoBehaviour
             scoreCounter.ScoreChanged += OnScoreChanged;
             OnScoreChanged(scoreCounter.score);
         }
+
+        if (!LeaderboardStore.HasPlayerName)
+            ShowNameEntryModal();
     }
 
     void FixedUpdate()
@@ -96,8 +102,7 @@ public class ApplePicker : MonoBehaviour
         {
             IsShieldPromptOpen = true;
             PauseGame();
-            ShowModal("Shielding unlocked", "Use the side shields and corner pads to return apples.\nToo many hits will kill the tree.",
-                "You obtained SHIELDING", ActivateShielding);
+            ShowShieldUnlockModal();
         }
     }
 
@@ -128,10 +133,7 @@ public class ApplePicker : MonoBehaviour
         basketGO.SetActive(false);
         Destroy(basketGO);
         if (basketList.Count == 0)
-        {
-            IsGameOver = true;
-            RestartGame();
-        }
+            ShowGameOverModal();
         else if (ShieldingUnlocked) UpdateShields(true);
     }
 
@@ -178,7 +180,10 @@ public class ApplePicker : MonoBehaviour
         properties.SetColor("_BaseColor", color);
         properties.SetColor("_Color", color);
         surfaceRenderer.SetPropertyBlock(properties);
-        surface.AddComponent<AppleBounceSurface>();
+        AppleBounceSurface bounceSurface = surface.AddComponent<AppleBounceSurface>();
+        bounceSurface.isShield = moving;
+        bounceSurface.padAimStrength = padAimStrength;
+        bounceSurface.shieldHitEffectPrefab = shieldHitEffectPrefab;
         if (moving)
         {
             Rigidbody body = surface.AddComponent<Rigidbody>();
@@ -227,9 +232,54 @@ public class ApplePicker : MonoBehaviour
         if (IsGameOver) return;
         IsGameOver = true;
         PauseGame();
-        ShowModal("The tree died", "Give the tree time to recover between hits.\nScore: " +
-            (scoreCounter != null ? scoreCounter.score.ToString("#,0") : "0"), "Restart", RestartGame);
+        SaveRunScore();
+        ShowEndGameModal("The tree died", "Give the tree time to recover between hits.\nScore: " + FormatScore());
     }
+
+    private void ShowGameOverModal()
+    {
+        if (IsGameOver) return;
+        IsGameOver = true;
+        PauseGame();
+        SaveRunScore();
+        ShowEndGameModal("Out of baskets", "Score: " + FormatScore());
+    }
+
+    private void SaveRunScore()
+    {
+        if (scoreCounter == null || !LeaderboardStore.HasPlayerName) return;
+        LeaderboardStore.AddScore(LeaderboardStore.PlayerName, scoreCounter.score);
+        HighScore.RefreshDisplay();
+    }
+
+    private void ShowShieldUnlockModal()
+    {
+        if (modal != null) Destroy(modal);
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        modal = new GameObject("Gameplay Modal", typeof(RectTransform), typeof(Image));
+        modal.transform.SetParent(canvas.transform, false);
+        RectTransform overlay = modal.GetComponent<RectTransform>();
+        overlay.anchorMin = Vector2.zero;
+        overlay.anchorMax = Vector2.one;
+        overlay.offsetMin = overlay.offsetMax = Vector2.zero;
+        modal.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
+
+        GameObject buttonObject = new GameObject("Continue Button", typeof(RectTransform), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(modal.transform, false);
+        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+        buttonRect.sizeDelta = new Vector2(420f, 72f);
+        buttonRect.anchoredPosition = Vector2.zero;
+        buttonObject.GetComponent<Image>().color = new Color(0.1f, 0.4f, 0.55f);
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = buttonObject.GetComponent<Image>();
+        button.onClick.AddListener(ActivateShielding);
+        TextMeshProUGUI label = AddModalText("You obtained SHIELDING", 0f, 28f);
+        label.transform.SetParent(buttonObject.transform, false);
+        label.rectTransform.sizeDelta = buttonRect.sizeDelta;
+        button.Select();
+    }
+
+    private string FormatScore() => scoreCounter != null ? scoreCounter.score.ToString("#,0") : "0";
 
     private void PauseGame()
     {
@@ -241,6 +291,135 @@ public class ApplePicker : MonoBehaviour
     {
         Time.timeScale = 1f;
         SceneManager.LoadScene("_Scene_0");
+    }
+
+    public void NewGame()
+    {
+        LeaderboardStore.ClearPlayerName();
+        RestartGame();
+    }
+
+    private void ShowNameEntryModal()
+    {
+        if (modal != null) Destroy(modal);
+        IsNamePromptOpen = true;
+        PauseGame();
+
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        modal = new GameObject("Gameplay Modal", typeof(RectTransform), typeof(Image));
+        modal.transform.SetParent(canvas.transform, false);
+        RectTransform overlay = modal.GetComponent<RectTransform>();
+        overlay.anchorMin = Vector2.zero;
+        overlay.anchorMax = Vector2.one;
+        overlay.offsetMin = overlay.offsetMax = Vector2.zero;
+        modal.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
+
+        AddModalText("Enter your name", 80f, 32f);
+        TMP_InputField nameField = CreateNameInputField(modal.transform);
+        nameField.transform.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, 10f);
+
+        GameObject buttonObject = new GameObject("Start Button", typeof(RectTransform), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(modal.transform, false);
+        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+        buttonRect.sizeDelta = new Vector2(320f, 64f);
+        buttonRect.anchoredPosition = new Vector2(0f, -90f);
+        buttonObject.GetComponent<Image>().color = new Color(0.1f, 0.4f, 0.55f);
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = buttonObject.GetComponent<Image>();
+        button.onClick.AddListener(() => SubmitPlayerName(nameField));
+        TextMeshProUGUI label = AddModalText("Start", 0f, 24f);
+        label.transform.SetParent(buttonObject.transform, false);
+        label.rectTransform.sizeDelta = buttonRect.sizeDelta;
+        nameField.ActivateInputField();
+        button.Select();
+    }
+
+    private void SubmitPlayerName(TMP_InputField nameField)
+    {
+        string name = nameField != null ? nameField.text.Trim() : string.Empty;
+        if (string.IsNullOrEmpty(name)) return;
+        LeaderboardStore.SetPlayerName(name);
+        IsNamePromptOpen = false;
+        if (modal != null) Destroy(modal);
+        HighScore.RefreshDisplay();
+        Time.timeScale = resumeTimeScale > 0f ? resumeTimeScale : 1f;
+    }
+
+    private TMP_InputField CreateNameInputField(Transform parent)
+    {
+        GameObject inputRoot = new GameObject("Name Input", typeof(RectTransform), typeof(Image));
+        inputRoot.transform.SetParent(parent, false);
+        RectTransform rootRect = inputRoot.GetComponent<RectTransform>();
+        rootRect.sizeDelta = new Vector2(360f, 48f);
+        inputRoot.GetComponent<Image>().color = new Color(0.1f, 0.12f, 0.18f, 1f);
+
+        GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
+        textArea.transform.SetParent(inputRoot.transform, false);
+        RectTransform textAreaRect = textArea.GetComponent<RectTransform>();
+        textAreaRect.anchorMin = Vector2.zero;
+        textAreaRect.anchorMax = Vector2.one;
+        textAreaRect.offsetMin = new Vector2(10f, 6f);
+        textAreaRect.offsetMax = new Vector2(-10f, -6f);
+
+        GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(textArea.transform, false);
+        TextMeshProUGUI inputText = textObject.GetComponent<TextMeshProUGUI>();
+        inputText.fontSize = 24f;
+        inputText.color = Color.white;
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = textRect.offsetMax = Vector2.zero;
+
+        GameObject placeholderObject = new GameObject("Placeholder", typeof(RectTransform), typeof(TextMeshProUGUI));
+        placeholderObject.transform.SetParent(textArea.transform, false);
+        TextMeshProUGUI placeholder = placeholderObject.GetComponent<TextMeshProUGUI>();
+        placeholder.text = "Your name";
+        placeholder.fontSize = 24f;
+        placeholder.color = new Color(1f, 1f, 1f, 0.4f);
+        RectTransform placeholderRect = placeholderObject.GetComponent<RectTransform>();
+        placeholderRect.anchorMin = Vector2.zero;
+        placeholderRect.anchorMax = Vector2.one;
+        placeholderRect.offsetMin = placeholderRect.offsetMax = Vector2.zero;
+
+        TMP_InputField field = inputRoot.AddComponent<TMP_InputField>();
+        field.textViewport = textAreaRect;
+        field.textComponent = inputText;
+        field.placeholder = placeholder;
+        return field;
+    }
+
+    private void ShowEndGameModal(string title, string description)
+    {
+        if (modal != null) Destroy(modal);
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        modal = new GameObject("Gameplay Modal", typeof(RectTransform), typeof(Image));
+        modal.transform.SetParent(canvas.transform, false);
+        RectTransform overlay = modal.GetComponent<RectTransform>();
+        overlay.anchorMin = Vector2.zero;
+        overlay.anchorMax = Vector2.one;
+        overlay.offsetMin = overlay.offsetMax = Vector2.zero;
+        modal.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.06f, 0.92f);
+        AddModalText(title, 100f, 34f);
+        AddModalText(description, 20f, 19f);
+        CreateModalButton("Restart", -80f, RestartGame);
+        CreateModalButton("New Game", -160f, NewGame);
+    }
+
+    private void CreateModalButton(string label, float y, UnityEngine.Events.UnityAction action)
+    {
+        GameObject buttonObject = new GameObject(label + " Button", typeof(RectTransform), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(modal.transform, false);
+        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+        buttonRect.sizeDelta = new Vector2(320f, 64f);
+        buttonRect.anchoredPosition = new Vector2(0f, y);
+        buttonObject.GetComponent<Image>().color = new Color(0.1f, 0.4f, 0.55f);
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = buttonObject.GetComponent<Image>();
+        button.onClick.AddListener(action);
+        TextMeshProUGUI buttonLabel = AddModalText(label, 0f, 22f);
+        buttonLabel.transform.SetParent(buttonObject.transform, false);
+        buttonLabel.rectTransform.sizeDelta = buttonRect.sizeDelta;
     }
 
     private void ShowModal(string title, string description, string buttonText, UnityEngine.Events.UnityAction action)
@@ -290,7 +469,7 @@ public class ApplePicker : MonoBehaviour
     void OnDestroy()
     {
         if (scoreCounter != null) scoreCounter.ScoreChanged -= OnScoreChanged;
-        if (IsShieldPromptOpen || IsGameOver) Time.timeScale = 1f;
+        if (IsShieldPromptOpen || IsNamePromptOpen || IsGameOver) Time.timeScale = 1f;
         if (bounceMaterial != null) Destroy(bounceMaterial);
         if (shieldingRoot != null) Destroy(shieldingRoot);
         if (modal != null) Destroy(modal);
