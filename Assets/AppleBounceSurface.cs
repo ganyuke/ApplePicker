@@ -7,7 +7,9 @@ public class AppleBounceSurface : MonoBehaviour
     [Range(0f, 1f)] public float padAimStrength = 0.65f;
     public ParticleSystem shieldHitEffectPrefab;
 
-    void OnCollisionEnter(Collision collision)
+    void OnCollisionEnter(Collision collision) => HandleAppleCollision(collision);
+
+    public void HandleAppleCollision(Collision collision)
     {
         Apple apple = collision.gameObject.GetComponent<Apple>();
         if (apple == null) return;
