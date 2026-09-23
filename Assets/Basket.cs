@@ -1,14 +1,16 @@
 using UnityEngine;
 
-// Root basket rig: reads input and moves the whole stack (bottoms + shields).
+// Root basket rig: reads input, moves the stack, catches apples (RB must live here).
 public class Basket : MonoBehaviour
 {
     private ApplePicker picker;
+    private ScoreCounter scoreCounter;
     private Rigidbody body;
 
-    void Start()
+    void Awake()
     {
         picker = FindAnyObjectByType<ApplePicker>();
+        scoreCounter = FindAnyObjectByType<ScoreCounter>();
         body = GetComponent<Rigidbody>();
         if (body == null) return;
         body.interpolation = RigidbodyInterpolation.Interpolate;
@@ -30,5 +32,15 @@ public class Basket : MonoBehaviour
         Vector3 pos = body.position;
         pos.x = picker.BasketX;
         body.MovePosition(pos);
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        if (picker == null || !picker.IsPlaying) return;
+        Apple apple = collision.gameObject.GetComponent<Apple>();
+        if (apple == null || !apple.TryConsume()) return;
+        if (apple.type == AppleType.Poison) picker.AppleMissed();
+        else if (scoreCounter != null)
+            scoreCounter.AddPoints(apple.type == AppleType.Golden ? picker.goldenApplePoints : picker.normalApplePoints);
     }
 }
