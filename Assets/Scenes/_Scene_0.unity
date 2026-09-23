@@ -288,7 +288,7 @@ MonoBehaviour:
   shieldColor: {r: 0.2, g: 0.85, b: 1, a: 1}
   padColor: {r: 1, g: 0.55, b: 0.15, a: 1}
   shieldHitEffectPrefab: {fileID: 0}
-  devPadsAlwaysAimAtTree: 0
+  devPadsAlwaysAimAtTree: 1
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
