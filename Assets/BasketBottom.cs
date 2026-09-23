@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// One stack tier. Trigger collider catches apples while the parent Basket rigidbody moves the rig.
+// Catch logic for one stack tier. Basket routes collisions here (parent owns the rigidbody).
 public class BasketBottom : MonoBehaviour
 {
     private ApplePicker picker;
@@ -12,10 +12,10 @@ public class BasketBottom : MonoBehaviour
         scoreCounter = FindAnyObjectByType<ScoreCounter>();
     }
 
-    void OnTriggerEnter(Collider other)
+    public void HandleAppleCollision(Collision collision)
     {
         if (picker == null || !picker.IsPlaying) return;
-        Apple apple = other.GetComponent<Apple>();
+        Apple apple = collision.gameObject.GetComponent<Apple>();
         if (apple == null || !apple.TryConsume()) return;
         if (apple.type == AppleType.Poison) picker.AppleMissed();
         else if (scoreCounter != null)
