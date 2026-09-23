@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 4247171987290610405}
   - component: {fileID: 1670737027751031557}
   - component: {fileID: 3539711988498846968}
-  - component: {fileID: 7172286667724804388}
+  - component: {fileID: 5823114140919028208}
   m_Layer: 8
   m_Name: BasketBottom
   m_TagString: Untagged
@@ -113,7 +113,7 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &7172286667724804388
+--- !u!114 &5823114140919028208
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -122,6 +122,6 @@ MonoBehaviour:
   m_GameObject: {fileID: 5393129634535887835}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 31df1938a73d3b7c88f7bfe4fc404761, type: 3}
+  m_Script: {fileID: 11500000, guid: 21b436c3d343567a7929e54844811a4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BasketBottom

@@ -259,33 +259,6 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
---- !u!114 &990001001
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330585543}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b5d9f2a314c6587a93e2f1a0b9c8d7e6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CameraShake
-  defaultDuration: 0.15
-  defaultMagnitude: 0.12
---- !u!114 &990001002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330585543}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c6eaf3b425d7698b04f3a2b1c0d9e8f7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HitStop
-  defaultDuration: 0.07
 --- !u!114 &330585548
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -315,6 +288,7 @@ MonoBehaviour:
   shieldColor: {r: 0.2, g: 0.85, b: 1, a: 1}
   padColor: {r: 1, g: 0.55, b: 0.15, a: 1}
   shieldHitEffectPrefab: {fileID: 0}
+  devPadsAlwaysAimAtTree: 0
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -584,17 +558,33 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1354989776 stripped
+--- !u!114 &990001001
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3613866592460395693, guid: e126870f810009c1c9c9ceffa276d375, type: 3}
-  m_PrefabInstance: {fileID: 1911975073}
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 62cdf2314785d458483e86a1772f1a68, type: 3}
+  m_Script: {fileID: 11500000, guid: b5d9f2a314c6587a93e2f1a0b9c8d7e6, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ScoreCounter
+  m_EditorClassIdentifier: Assembly-CSharp::CameraShake
+  defaultDuration: 0.15
+  defaultMagnitude: 0.12
+--- !u!114 &990001002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6eaf3b425d7698b04f3a2b1c0d9e8f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HitStop
+  defaultDuration: 0.07
 --- !u!1001 &1911975073
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -761,14 +751,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 2384005667179385118, guid: c8b00b7be5354dfb08abc6475182b940, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3005358244224655365, guid: c8b00b7be5354dfb08abc6475182b940, type: 3}
-      propertyPath: scoreCounter
-      value: 
-      objectReference: {fileID: 1354989776}
     - target: {fileID: 7029731020073143470, guid: c8b00b7be5354dfb08abc6475182b940, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
