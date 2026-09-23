@@ -27,7 +27,13 @@ public class AppleBounceSurface : MonoBehaviour
 
     private void AimTowardTree(Apple apple)
     {
-        if (padAimStrength <= 0f) return;
+        float aimStrength = padAimStrength;
+        if (!isShield)
+        {
+            ApplePicker picker = FindAnyObjectByType<ApplePicker>();
+            if (picker != null && picker.DevPadsAlwaysAimAtTree) aimStrength = 1f;
+        }
+        if (aimStrength <= 0f) return;
         AppleTree tree = FindAnyObjectByType<AppleTree>();
         Rigidbody body = apple.GetComponent<Rigidbody>();
         if (tree == null || body == null) return;
@@ -40,7 +46,7 @@ public class AppleBounceSurface : MonoBehaviour
         toTree.z = 0f;
         if (toTree.sqrMagnitude < 0.01f) return;
 
-        Vector3 aimed = Vector3.Lerp(velocity.normalized, toTree.normalized, padAimStrength).normalized * speed;
+        Vector3 aimed = Vector3.Lerp(velocity.normalized, toTree.normalized, aimStrength).normalized * speed;
         aimed.z = 0f;
         body.linearVelocity = aimed;
     }

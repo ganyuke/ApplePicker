@@ -28,6 +28,8 @@ public class Apple : MonoBehaviour
         body.interpolation = RigidbodyInterpolation.Interpolate;
         picker = FindAnyObjectByType<ApplePicker>();
         gameObject.layer = LayerMask.NameToLayer("Apple");
+        foreach (ParticleSystem particle in GetComponents<ParticleSystem>())
+            Destroy(particle);
     }
 
     public void Initialize(AppleType appleType)
@@ -88,10 +90,25 @@ public class Apple : MonoBehaviour
 
     private void AttachTypeEffect()
     {
-        ParticleSystem effectPrefab = type == AppleType.Golden ? goldenSparklePrefab :
-            type == AppleType.Poison ? poisonCloudPrefab : null;
-        if (effectPrefab == null) return;
-        ParticleSystem effect = Instantiate(effectPrefab, transform);
-        effect.transform.localPosition = Vector3.zero;
+        if (type == AppleType.Golden)
+        {
+            if (goldenSparklePrefab != null)
+            {
+                ParticleSystem effect = Instantiate(goldenSparklePrefab, transform);
+                effect.transform.localPosition = Vector3.zero;
+            }
+            else AppleTypeParticles.AttachGolden(transform);
+            return;
+        }
+
+        if (type == AppleType.Poison)
+        {
+            if (poisonCloudPrefab != null)
+            {
+                ParticleSystem effect = Instantiate(poisonCloudPrefab, transform);
+                effect.transform.localPosition = Vector3.zero;
+            }
+            else AppleTypeParticles.AttachPoison(transform);
+        }
     }
 }

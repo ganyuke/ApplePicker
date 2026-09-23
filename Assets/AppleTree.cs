@@ -149,13 +149,18 @@ public class AppleTree : MonoBehaviour
             return true;
         }
 
+        bool stunned = false;
         while (stunTimes.Count > 0 && Time.time - stunTimes.Peek() >= stunWindow)
             stunTimes.Dequeue();
         if (stunTimes.Count < maxStunsPerWindow)
         {
             stunTimes.Enqueue(Time.time);
             stunnedUntil = Time.time + stunDuration;
+            stunned = true;
         }
+
+        CameraShake.ShakeCamera(0.12f, 0.1f);
+        if (stunned) HitStop.FreezeTime(0.07f);
         return true;
     }
 

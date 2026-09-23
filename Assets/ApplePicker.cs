@@ -29,6 +29,10 @@ public class ApplePicker : MonoBehaviour
     public Color padColor = new Color(1f, 0.55f, 0.15f);
     public ParticleSystem shieldHitEffectPrefab;
 
+    [Header("Dev")]
+    public bool devPadsAlwaysAimAtTree;
+
+    public bool DevPadsAlwaysAimAtTree => devPadsAlwaysAimAtTree;
     public bool ShieldingUnlocked { get; private set; }
     public bool IsGameOver { get; private set; }
     public bool IsShieldPromptOpen => gameUI != null && gameUI.IsShieldPromptOpen;
