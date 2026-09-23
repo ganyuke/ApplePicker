@@ -54,18 +54,19 @@ public class ApplePicker : MonoBehaviour
 
     void Awake()
     {
-        if (!ValidateBasketBottomPrefab()) return;
         ResolveReferences();
     }
 
     void OnValidate()
     {
-        ValidateBasketBottomPrefab();
+        if (basketBottomPrefab != null && !basketBottomPrefab.scene.IsValid())
+            basketBottomCollider = basketBottomPrefab.GetComponent<BoxCollider>();
     }
 
     void Start()
     {
-        if (basketBottomPrefab == null || basketBottomCollider == null) return;
+        ResolveReferences();
+        PositionBasketRig();
 
         gameUI = FindAnyObjectByType<GameUIManager>();
         if (gameUI != null)
@@ -78,7 +79,7 @@ public class ApplePicker : MonoBehaviour
         if (shieldsRoot != null) shieldsRoot.SetActive(false);
 
         NextBasketRewardScore = Mathf.Max(1, firstBasketRewardScore);
-        PositionBasketRig();
+        if (!ValidateBasketBottomPrefab()) return;
         ClearBasketBottoms();
         for (int i = 0; i < numBaskets; i++) RestoreBasket();
         scoreCounter = FindAnyObjectByType<ScoreCounter>();
@@ -216,7 +217,6 @@ public class ApplePicker : MonoBehaviour
         GameObject bottom = Instantiate(basketBottomPrefab, basketBottomsParent);
         bottom.transform.localPosition = new Vector3(0f, localY, 0f);
         bottom.transform.localRotation = Quaternion.identity;
-        EnsureKinematicRigidbody(bottom);
         basketList.Add(bottom);
         if (ShieldingUnlocked) UpdateShields();
         return true;
@@ -295,7 +295,6 @@ public class ApplePicker : MonoBehaviour
     private void ConfigureShield(Transform shield)
     {
         if (shield == null) return;
-        EnsureKinematicRigidbody(shield.gameObject);
         Collider collider = shield.GetComponent<Collider>();
         if (collider != null) collider.sharedMaterial = bounceMaterial;
         shield.gameObject.layer = LayerMask.NameToLayer("Basket");

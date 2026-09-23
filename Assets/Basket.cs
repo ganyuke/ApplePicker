@@ -31,4 +31,12 @@ public class Basket : MonoBehaviour
         pos.x = picker.BasketX;
         body.MovePosition(pos);
     }
+
+    // Shield colliders are children of this rigidbody; route hits to AppleBounceSurface on the collider that was hit.
+    void OnCollisionEnter(Collision collision)
+    {
+        if (collision.contactCount == 0) return;
+        AppleBounceSurface surface = collision.GetContact(0).thisCollider.GetComponent<AppleBounceSurface>();
+        if (surface != null) surface.HandleAppleCollision(collision);
+    }
 }
