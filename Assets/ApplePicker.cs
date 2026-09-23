@@ -216,8 +216,7 @@ public class ApplePicker : MonoBehaviour
         GameObject bottom = Instantiate(basketBottomPrefab, basketBottomsParent);
         bottom.transform.localPosition = new Vector3(0f, localY, 0f);
         bottom.transform.localRotation = Quaternion.identity;
-        Rigidbody extraBody = bottom.GetComponent<Rigidbody>();
-        if (extraBody != null) Destroy(extraBody);
+        EnsureKinematicRigidbody(bottom);
         basketList.Add(bottom);
         if (ShieldingUnlocked) UpdateShields();
         return true;
@@ -283,9 +282,20 @@ public class ApplePicker : MonoBehaviour
         };
     }
 
+    private static void EnsureKinematicRigidbody(GameObject target)
+    {
+        Rigidbody body = target.GetComponent<Rigidbody>();
+        if (body == null) body = target.AddComponent<Rigidbody>();
+        body.useGravity = false;
+        body.isKinematic = true;
+        body.interpolation = RigidbodyInterpolation.Interpolate;
+        body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+    }
+
     private void ConfigureShield(Transform shield)
     {
         if (shield == null) return;
+        EnsureKinematicRigidbody(shield.gameObject);
         Collider collider = shield.GetComponent<Collider>();
         if (collider != null) collider.sharedMaterial = bounceMaterial;
         shield.gameObject.layer = LayerMask.NameToLayer("Basket");
@@ -309,6 +319,7 @@ public class ApplePicker : MonoBehaviour
         GameObject surface = GameObject.CreatePrimitive(PrimitiveType.Cube);
         surface.name = surfaceName;
         surface.transform.SetParent(padsRoot.transform);
+        EnsureKinematicRigidbody(surface);
         surface.layer = LayerMask.NameToLayer("Basket");
         surface.GetComponent<Collider>().sharedMaterial = bounceMaterial;
         Renderer surfaceRenderer = surface.GetComponent<Renderer>();
