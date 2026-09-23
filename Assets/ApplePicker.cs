@@ -76,8 +76,6 @@ public class ApplePicker : MonoBehaviour
         if (gameUI != null)
         {
             gameUI.ShieldAccepted += ActivateShielding;
-            gameUI.RestartRequested += RestartGame;
-            gameUI.NewGameRequested += NewGame;
         }
 
         if (shieldsRoot != null) shieldsRoot.SetActive(false);
@@ -393,25 +391,9 @@ public class ApplePicker : MonoBehaviour
 
     private string FormatScore() => scoreCounter != null ? scoreCounter.score.ToString("#,0") : "0";
 
-    public void RestartGame()
-    {
-        if (gameUI != null) gameUI.RestartGame();
-        else
-        {
-            Time.timeScale = 1f;
-            UnityEngine.SceneManagement.SceneManager.LoadScene("_Scene_0");
-        }
-    }
+    public void RestartGame() => gameUI?.RestartGame();
 
-    public void NewGame()
-    {
-        if (gameUI != null) gameUI.NewGame();
-        else
-        {
-            LeaderboardStore.ClearPlayerName();
-            RestartGame();
-        }
-    }
+    public void NewGame() => gameUI?.NewGame();
 
     void OnDestroy()
     {
@@ -419,8 +401,6 @@ public class ApplePicker : MonoBehaviour
         if (gameUI != null)
         {
             gameUI.ShieldAccepted -= ActivateShielding;
-            gameUI.RestartRequested -= RestartGame;
-            gameUI.NewGameRequested -= NewGame;
         }
         if (IsGameOver || IsShieldPromptOpen || IsNamePromptOpen) Time.timeScale = 1f;
         if (bounceMaterial != null) Destroy(bounceMaterial);

@@ -18,6 +18,7 @@ public class LeaderboardData
 public static class LeaderboardStore
 {
     const string PlayerNameKey = "PlayerName";
+    const string RunActiveKey = "RunActive";
     const string DataKey = "LeaderboardData";
 
     public static int MaxEntries { get; set; } = 8;
@@ -25,6 +26,20 @@ public static class LeaderboardStore
     public static string PlayerName => PlayerPrefs.GetString(PlayerNameKey, string.Empty);
 
     public static bool HasPlayerName => !string.IsNullOrWhiteSpace(PlayerName);
+
+    public static bool IsRunActive => PlayerPrefs.GetInt(RunActiveKey, 0) == 1;
+
+    public static void MarkRunActive()
+    {
+        PlayerPrefs.SetInt(RunActiveKey, 1);
+        PlayerPrefs.Save();
+    }
+
+    public static void ClearRunActive()
+    {
+        PlayerPrefs.DeleteKey(RunActiveKey);
+        PlayerPrefs.Save();
+    }
 
     public static void SetPlayerName(string name)
     {

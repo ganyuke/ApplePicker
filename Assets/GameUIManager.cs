@@ -21,14 +21,13 @@ public class GameUIManager : MonoBehaviour
     private GameObject shieldModal;
     private GameObject gameOverModal;
     private GameObject backdropModal;
-    
+
     private TMP_InputField nameField;
     private Button startButton;
     private Button shieldButton;
     private Button restartButton;
     private Button newGameButton;
     private TMP_Text gameOverBody;
-    private float resumeTimeScale = 1f;
 
     void Awake()
     {
@@ -41,7 +40,7 @@ public class GameUIManager : MonoBehaviour
         {
             nameField = startModal.GetComponentInChildren<TMP_InputField>(true);
             startButton = startModal.GetComponentInChildren<Button>(true);
-            if (startButton != null) startButton.onClick.AddListener(SubmitName);
+            if (startButton != null) startButton.onClick.AddListener(StartRun);
         }
 
         if (shieldModal != null)
@@ -54,15 +53,39 @@ public class GameUIManager : MonoBehaviour
         {
             Transform notice = gameOverModal.transform.Find("Notice");
             if (notice != null) gameOverBody = notice.GetComponent<TMP_Text>();
-            foreach (Button button in gameOverModal.GetComponentsInChildren<Button>(true))
+
+            Transform restart = gameOverModal.transform.Find("RestartButton");
+            if (restart == null)
             {
-                TMP_Text label = button.GetComponentInChildren<TMP_Text>();
-                if (label == null) continue;
-                if (label.text == "Restart") restartButton = button;
-                else if (label.text == "New Game") newGameButton = button;
+                foreach (Button button in gameOverModal.GetComponentsInChildren<Button>(true))
+                {
+                    TMP_Text label = button.GetComponentInChildren<TMP_Text>();
+                    if (label != null && label.text.IndexOf("restart", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        restartButton = button;
+                        break;
+                    }
+                }
             }
-            if (restartButton != null) restartButton.onClick.AddListener(() => RestartRequested?.Invoke());
-            if (newGameButton != null) newGameButton.onClick.AddListener(() => NewGameRequested?.Invoke());
+            else restartButton = restart.GetComponent<Button>();
+
+            Transform newGame = gameOverModal.transform.Find("NewGameButton");
+            if (newGame != null) newGameButton = newGame.GetComponent<Button>();
+            else
+            {
+                foreach (Button button in gameOverModal.GetComponentsInChildren<Button>(true))
+                {
+                    TMP_Text label = button.GetComponentInChildren<TMP_Text>();
+                    if (label != null && label.text.IndexOf("new game", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        newGameButton = button;
+                        break;
+                    }
+                }
+            }
+
+            if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
+            if (newGameButton != null) newGameButton.onClick.AddListener(NewGame);
         }
 
         HideAllModals();
@@ -71,7 +94,7 @@ public class GameUIManager : MonoBehaviour
 
     void Start()
     {
-        if (!LeaderboardStore.HasPlayerName)
+        if (!LeaderboardStore.IsRunActive)
             ShowNameEntry();
     }
 
@@ -111,22 +134,20 @@ public class GameUIManager : MonoBehaviour
         SyncBackdrop();
         if (nameField != null)
         {
-            nameField.text = string.Empty;
+            nameField.text = LeaderboardStore.HasPlayerName ? LeaderboardStore.PlayerName : string.Empty;
             nameField.ActivateInputField();
         }
     }
 
-    private void SubmitName()
+    private void StartRun()
     {
         string name = nameField != null ? nameField.text.Trim() : string.Empty;
         if (string.IsNullOrEmpty(name)) return;
         LeaderboardStore.SetPlayerName(name);
-        IsNamePromptOpen = false;
-        startModal.SetActive(false);
-        SyncBackdrop();
+        LeaderboardStore.MarkRunActive();
         Leaderboard.RefreshDisplay();
-        Resume();
         NameSubmitted?.Invoke(name);
+        ReloadScene();
     }
 
     public void ShowShieldUnlock()
@@ -163,25 +184,33 @@ public class GameUIManager : MonoBehaviour
 
     public void Pause()
     {
-        if (Time.timeScale > 0f) resumeTimeScale = Time.timeScale;
         Time.timeScale = 0f;
     }
 
     public void Resume()
     {
-        Time.timeScale = resumeTimeScale > 0f ? resumeTimeScale : 1f;
+        Time.timeScale = 1f;
     }
 
     public void RestartGame()
     {
-        Time.timeScale = 1f;
-        SceneManager.LoadScene("_Scene_0");
+        RestartRequested?.Invoke();
+        ReloadScene();
     }
 
     public void NewGame()
     {
+        NewGameRequested?.Invoke();
         LeaderboardStore.ClearPlayerName();
-        RestartGame();
+        LeaderboardStore.ClearRunActive();
+        ShowNameEntry();
+    }
+
+    private static void ReloadScene()
+    {
+        Time.timeScale = 1f;
+        Scene scene = SceneManager.GetActiveScene();
+        SceneManager.LoadScene(scene.buildIndex);
     }
 
     void OnDestroy()
